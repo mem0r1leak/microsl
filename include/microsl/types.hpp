@@ -20,6 +20,29 @@ namespace msl::types::concepts {
     template<typename T, typename U>
     inline constexpr bool is_same_v = is_same<T, U>::value;
 
+    template<typename T>
+    struct remove_cv {
+        using type = T;
+    };
+
+    template<typename T>
+    struct remove_cv<const T> {
+        using type = T;
+    };
+
+    template<typename T>
+    struct remove_cv<volatile T> {
+        using type = T;
+    };
+
+    template<typename T>
+    struct remove_cv<const volatile T> {
+        using type = T;
+    };
+
+    template<typename T>
+    using remove_cv_t = remove_cv<T>::type;
+
     // Перевірка, чи тип є точно інтегральним (int, char, short, long тощо)
     template<typename T>
     concept integral =
@@ -34,7 +57,20 @@ namespace msl::types::concepts {
             is_same_v<T, long> ||
             is_same_v<T, unsigned long> ||
             is_same_v<T, long long> ||
-            is_same_v<T, unsigned long long>;
+            is_same_v<T, unsigned long long> ||
+
+            is_same_v<remove_cv_t<T>, bool> ||
+            is_same_v<remove_cv_t<T>, char> ||
+            is_same_v<remove_cv_t<T>, signed char> ||
+            is_same_v<remove_cv_t<T>, unsigned char> ||
+            is_same_v<remove_cv_t<T>, short> ||
+            is_same_v<remove_cv_t<T>, unsigned short> ||
+            is_same_v<remove_cv_t<T>, int> ||
+            is_same_v<remove_cv_t<T>, unsigned int> ||
+            is_same_v<remove_cv_t<T>, long> ||
+            is_same_v<remove_cv_t<T>, unsigned long> ||
+            is_same_v<remove_cv_t<T>, long long> ||
+            is_same_v<remove_cv_t<T>, unsigned long long>;
 
     template<typename T>
     concept floating_point =
@@ -94,27 +130,139 @@ namespace msl::types {
     inline static constexpr u64 min_u64 = 0;
 
     inline static constexpr i8 max_i8 = ~static_cast<u8>(0) >> 1;
-    inline static constexpr i8 min_i8 = ~(~static_cast<u8>(0) >> 1);
+    inline static constexpr i8 min_i8 = -max_i8 - 1;
 
     inline static constexpr i16 max_i16 = ~static_cast<u16>(0) >> 1;
-    inline static constexpr i16 min_i16 = ~(~static_cast<u16>(0) >> 1);
+    inline static constexpr i16 min_i16 = -max_i16 - 1;
 
     inline static constexpr i32 max_i32 = ~static_cast<u32>(0) >> 1;
-    inline static constexpr i32 min_i32 = static_cast<i32>(~((~static_cast<u32>(0)) >> 1));
+    inline static constexpr i32 min_i32 = -max_i32 - 1;
 
     inline static constexpr i64 max_i64 = ~static_cast<u64>(0) >> 1;
-    inline static constexpr i64 min_i64 = static_cast<i64>(~((~static_cast<u64>(0)) >> 1));
+    inline static constexpr i64 min_i64 = -max_i64 - 1;
 }
 
 template<typename T>
-struct optional {
+struct Value {
     T value;
+};
+
+template<typename T>
+constexpr T &&move(T &val) {
+    return static_cast<T &&>(val);
+}
+
+template<typename T>
+struct Option {
+    union {
+        Value<T> value;
+    } data;
+
     bool has_value;
 
-    static constexpr optional none = {{}, false};
+    constexpr Option() : has_value(false) {
+    }
 
-    static optional val(T value) {
-        return {value, true};
+    ~Option() {
+        if (has_value) {
+            data.value.~Value();
+        }
+    }
+
+    constexpr Option(Option &&other) : has_value(other.has_value) {
+        if (other.has_value) {
+            ::new(&data.value) Value<T>(move(other.data.value));
+        }
+    }
+
+    constexpr Option(Value<T> &&val) : has_value(true) {
+        ::new(&data.value) Value<T>(static_cast<Value<T> &&>(val));
+    }
+
+    static constexpr Option none() noexcept {
+        return Option();
     }
 };
 
+template<typename Signature>
+class Func;
+
+// Реалізація нормального синтаксису для вказівників на функції
+template<typename Ret, typename... Args>
+class Func<Ret(Args...)> {
+public:
+    using ptr_type = Ret(*)(Args...);
+
+private:
+    ptr_type m_func = nullptr;
+
+public:
+    Func() = default;
+
+    Func(const ptr_type func) : m_func(func) {
+    }
+
+    Ret operator()(Args&&... args) const {
+        return m_func(static_cast<Args &&>(args)...);
+    }
+
+    explicit operator bool() const { return m_func != nullptr; }
+};
+
+template<typename OkType, typename ErrType>
+class Result;
+
+template<typename T>
+struct Ok {
+    T value;
+};
+
+template<typename T>
+struct Err {
+    T value;
+};
+
+template<typename OkType, typename ErrType>
+class Result {
+    bool is_ok;
+
+    union {
+        Err<ErrType> err_val;
+        Ok<OkType> ok_val;
+    };
+
+public:
+    Result(Ok<OkType> &&ok) : is_ok(true) {
+        ::new(&ok_val) Ok<OkType>(move(ok));
+    }
+
+    Result(Err<ErrType> &&err) : is_ok(false) {
+        ::new(&err_val) Err<ErrType>(move(err));
+    }
+
+    ~Result() {
+        if (is_ok) {
+            ok_val.~Ok();
+        } else {
+            err_val.~Err();
+        }
+    }
+
+    Result *if_ok(Func<void(const Ok<OkType> &)> ok_fn) {
+        if (is_ok) ok_fn(ok_val);
+        return this;
+    }
+
+    Result *if_err(Func<void(const Err<ErrType> &)> err_fn) {
+        if (!is_ok) err_fn(err_val);
+        return this;
+    }
+
+    void unwrap(Func<void(const Ok<OkType> &)> ok_fn, Func<void(const Err<ErrType> &)> err_fn) {
+        is_ok ? ok_fn(ok_val) : err_fn(err_val);
+    }
+
+    bool has_value() const { return is_ok; }
+    Ok<OkType> value() { return move(ok_val); }
+    Err<ErrType> error() { return move(err_val); }
+};
