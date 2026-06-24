@@ -65,7 +65,7 @@ namespace msl {
         }
 
         [[nodiscard]] bool has_value() const { return is_ok; }
-        Ok<OkType> value() const { return move(ok_val); }
-        Err<ErrType> error() const { return move(err_val); }
+        OkType value() const { return move(ok_val.value); }
+        ErrType error() const { return move(err_val.value); }
     };
 }

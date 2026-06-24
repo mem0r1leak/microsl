@@ -1,5 +1,6 @@
 #pragma once
 
+#include "result.hpp"
 #include "span.hpp"
 #include "types.hpp"
 
@@ -9,19 +10,28 @@ namespace msl {
 
         enum class AllocationError {
             OutOfMemory,
+            InvalidArgument,
+            PermissionDenied,
+            Unsupported,
+            FragmentationFailure,
         };
 
     public:
         virtual ~Allocator() = default;
 
+        Allocator(const Allocator&) = delete;
+        Allocator& operator=(const Allocator&) = delete;
+        Allocator(Allocator&&) = delete;
+        Allocator& operator=(Allocator&&) = delete;
+
         template<typename T>
         [[nodiscard]] Result<Span<T>, AllocationError> alloc(usize size) {
-            auto memory = allocate(size * sizeof(T), alignof(T));
+            const auto memory = allocate(size * sizeof(T), alignof(T));
             if (!memory.has_value()) {
                 return memory.error();
             }
 
-            auto items = static_cast<T*>(memory);
+            auto items = static_cast<T*>(memory.value());
             for (usize i = 0; i < size; ++i) {
                 ::new(&items[i]) T();
             }
@@ -30,30 +40,30 @@ namespace msl {
 
         template<typename T, typename... Args>
         [[nodiscard]] Result<T*, AllocationError> create(Args &&... args) {
-            auto memory = allocate(sizeof(T), alignof(T));
+            const auto memory = allocate(sizeof(T), alignof(T));
             if (!memory.has_value()) return memory.error();
-            auto object = ::new(memory) T(static_cast<Args &&>(args)...);
+            auto object = ::new(memory.value()) T(static_cast<Args &&>(args)...);
             return Ok{object};
         }
 
         template<typename T>
-        Option<AllocationError> free(Span<T> items) {
+        void free(Span<T> items) {
             for (auto& i: items) {
                 i.~T();
             }
             const auto memory = static_cast<address>(items.ptr);
-            return deallocate(memory, items.size * sizeof(T), alignof(T));
+            deallocate(memory, items.size * sizeof(T), alignof(T));
         }
 
         template<typename T>
-        Option<AllocationError> destroy(T *item) {
+        void destroy(T *item) {
             item->~T();
             const auto memory = static_cast<address>(item);
-            return deallocate(memory, sizeof(T), alignof(T));
+            deallocate(memory, sizeof(T), alignof(T));
         }
 
     protected:
         virtual Result<address, AllocationError> allocate(usize count, usize alignment) = 0;
-        virtual Option<AllocationError> deallocate(address ptr, usize size, usize alignment) = 0;
+        virtual void deallocate(address ptr, usize size, usize alignment) = 0;
     };
 }

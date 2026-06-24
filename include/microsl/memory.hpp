@@ -29,6 +29,7 @@ namespace msl::mem {
     }
 }
 
+// Doesn't do any allocation. Just to silence the compiler.
 inline void* operator new(msl::types::usize, void* __p) noexcept {
     return __p;
 }
