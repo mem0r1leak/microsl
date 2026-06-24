@@ -9,7 +9,7 @@ namespace msl::mem {
     }
 
     template<typename T>
-    constexpr T &&move(T &val) {
+    constexpr T &&move(T &val) noexcept {
         return static_cast<T &&>(val);
     }
 

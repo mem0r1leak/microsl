@@ -26,11 +26,11 @@ namespace msl {
 
     public:
         Result(Ok<OkType> &&ok) : is_ok(true) {
-            mem::construct(&ok_val, move(ok));
+            mem::construct(&ok_val, mem::move(ok));
         }
 
         Result(Err<ErrType> &&err) : is_ok(false) {
-            mem::construct(&err_val, move(err));
+            mem::construct(&err_val, mem::move(err));
         }
 
         ~Result() {
@@ -41,22 +41,31 @@ namespace msl {
             }
         }
 
-        Result *if_ok(types::Func<void(const Ok<OkType> &)> ok_fn) {
-            if (is_ok) ok_fn(ok_val);
+        template<typename Function> requires msl::types::concepts::invocable<Function, Ok<OkType> >
+        const Result *if_ok(Function callback) const {
+            if (is_ok) callback(ok_val);
             return this;
         }
 
-        Result *if_err(types::Func<void(const Err<ErrType> &)> err_fn) {
-            if (!is_ok) err_fn(err_val);
+        template<typename Function> requires msl::types::concepts::invocable<Function, Ok<OkType> >
+        const Result *if_err(Function callback) const {
+            if (!is_ok) callback(err_val);
             return this;
         }
 
-        void unwrap(types::Func<void(const Ok<OkType> &)> ok_fn, types::Func<void(const Err<ErrType> &)> err_fn) {
-            is_ok ? ok_fn(ok_val) : err_fn(err_val);
+        template<typename OkFunc, typename ErrFunc>
+            requires msl::types::concepts::invocable<OkFunc, const Ok<OkType> &> &&
+                     msl::types::concepts::invocable<ErrFunc, const Err<ErrType> &>
+        void match(OkFunc ok_fn, ErrFunc err_fn) const {
+            if (is_ok) [[likely]] {
+                ok_fn(ok_val);
+            } else [[unlikely]] {
+                err_fn(err_val);
+            }
         }
 
         [[nodiscard]] bool has_value() const { return is_ok; }
-        Ok<OkType> value() { return move(ok_val); }
-        Err<ErrType> error() { return move(err_val); }
+        Ok<OkType> value() const { return move(ok_val); }
+        Err<ErrType> error() const { return move(err_val); }
     };
 }

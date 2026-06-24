@@ -2,13 +2,15 @@
 #include "memory.hpp"
 #include "assert.hpp"
 
-template<typename T>
-struct Value {
-    T value;
-};
-
 namespace msl {
-    using namespace msl;
+    template<typename T>
+    struct Value {
+        T value;
+    };
+
+    struct None {};
+
+    inline constexpr None none{};
 
     template<typename T>
     class Option {
@@ -23,13 +25,8 @@ namespace msl {
         constexpr Option() : has_value(false) {
         }
 
-        [[nodiscard]] bool with_value() const noexcept { return has_value; }
-        [[nodiscard]] T get_value() { if (!has_value) assert(false && "Has no value"); return value.value; }
-
-        ~Option() {
-            if (has_value) {
-                mem::destruct(&value);
-            }
+        // ReSharper disable once CppPossiblyUninitializedMember
+        constexpr Option(None) noexcept : has_value(false) {
         }
 
         constexpr Option(Option &&other) noexcept : has_value(other.has_value) {
@@ -39,12 +36,27 @@ namespace msl {
         }
 
         // ReSharper disable once CppNonExplicitConvertingConstructor
+        constexpr Option(const Value<T>& val) noexcept : has_value(true) {
+            mem::construct(&value, val.value);
+        }
+
+        // ReSharper disable once CppNonExplicitConvertingConstructor
         constexpr Option(Value<T> &&val) : has_value(true) {
             mem::construct(&value, mem::move(val.value));
         }
 
-        static constexpr Option none() noexcept {
-            return Option();
+        [[nodiscard]] bool with_value() const noexcept { return has_value; }
+
+        [[nodiscard]] T get_value() const {
+            if (!has_value)
+                assert(false && "Has no value");
+            return value.value;
+        }
+
+        ~Option() {
+            if (has_value) {
+                mem::destruct(&value);
+            }
         }
     };
 }

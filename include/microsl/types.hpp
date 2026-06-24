@@ -99,6 +99,12 @@ namespace msl::types::concepts {
     // Чи має тип тривіальний деструктор (тобто його не треба викликати, як у int)?
     template<typename T>
     concept trivially_destructible = __is_trivially_destructible(T);
+
+    // Чи можна тип викликати як функцію тобто чи є тип функтором
+    template<typename F, typename... Args>
+    concept invocable = requires(F&& f, Args&&... args) {
+        f(static_cast<Args&&>(args)...);
+    };
 }
 
 namespace msl::types {
