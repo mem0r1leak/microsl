@@ -32,16 +32,17 @@ namespace msl {
         [[nodiscard]] Result<T*, AllocationError> create(Args &&... args) {
             auto memory = allocate(sizeof(T), alignof(T));
             if (!memory.has_value()) return memory.error();
-            return Ok{::new(memory) T(static_cast<Args &&>(args)...)};
+            auto object = ::new(memory) T(static_cast<Args &&>(args)...);
+            return Ok{object};
         }
 
         template<typename T>
-        void free(Span<T> items) {
+        Option<AllocationError> free(Span<T> items) {
             for (auto& i: items) {
                 i.~T();
             }
             const auto memory = static_cast<address>(items.ptr);
-            deallocate(memory, items.size * sizeof(T), alignof(T));
+            return deallocate(memory, items.size * sizeof(T), alignof(T));
         }
 
         template<typename T>
