@@ -114,155 +114,57 @@ namespace msl::types {
 
     using usize = decltype(sizeof(0));
 
+    using size_t = usize;
+
     inline static constexpr usize max_size = ~static_cast<usize>(0);
     inline static constexpr usize min_size = 0;
 
-    inline static constexpr u8 max_u8 = ~static_cast<u8>(0);
+    inline static constexpr u8 max_u8 = 0xff;
     inline static constexpr u8 min_u8 = 0;
 
-    inline static constexpr u16 max_u16 = ~static_cast<u16>(0);
+    inline static constexpr u16 max_u16 = 0xffff;
     inline static constexpr u16 min_u16 = 0;
 
-    inline static constexpr u32 max_u32 = ~static_cast<u32>(0);
+    inline static constexpr u32 max_u32 = 0xffffffff;
     inline static constexpr u32 min_u32 = 0;
 
-    inline static constexpr u64 max_u64 = ~static_cast<u64>(0);
+    inline static constexpr u64 max_u64 = 0xffffffffffffffffULL;
     inline static constexpr u64 min_u64 = 0;
 
-    inline static constexpr i8 max_i8 = ~static_cast<u8>(0) >> 1;
-    inline static constexpr i8 min_i8 = -max_i8 - 1;
+    inline static constexpr i8 max_i8 = 0x7f;
+    inline static constexpr i8 min_i8 = static_cast<i8>(0x80);
 
-    inline static constexpr i16 max_i16 = ~static_cast<u16>(0) >> 1;
-    inline static constexpr i16 min_i16 = -max_i16 - 1;
+    inline static constexpr i16 max_i16 = 0x7fff;
+    inline static constexpr i16 min_i16 = static_cast<i16>(0x8000);
 
-    inline static constexpr i32 max_i32 = ~static_cast<u32>(0) >> 1;
-    inline static constexpr i32 min_i32 = -max_i32 - 1;
+    inline static constexpr i32 max_i32 = 0x7fffffff;
+    inline static constexpr i32 min_i32 = static_cast<i32>(0x80000000);
 
-    inline static constexpr i64 max_i64 = ~static_cast<u64>(0) >> 1;
-    inline static constexpr i64 min_i64 = -max_i64 - 1;
-}
+    inline static constexpr i64 max_i64 = 0x7fffffffffffffffLL;
+    inline static constexpr i64 min_i64 = static_cast<i64>(0x8000000000000000ULL);
 
-template<typename T>
-struct Value {
-    T value;
-};
+    template<typename Signature>
+    class Func;
 
-template<typename T>
-constexpr T &&move(T &val) {
-    return static_cast<T &&>(val);
-}
+    // Реалізація нормального синтаксису для вказівників на функції
+    template<typename Ret, typename... Args>
+    class Func<Ret(Args...)> {
+    public:
+        using ptr_type = Ret(*)(Args...);
 
-template<typename T>
-struct Option {
-    union {
-        Value<T> value;
-    } data;
+    private:
+        ptr_type m_func = nullptr;
 
-    bool has_value;
+    public:
+        Func() = default;
 
-    constexpr Option() : has_value(false) {
-    }
-
-    ~Option() {
-        if (has_value) {
-            data.value.~Value();
+        Func(const ptr_type func) : m_func(func) {
         }
-    }
 
-    constexpr Option(Option &&other) : has_value(other.has_value) {
-        if (other.has_value) {
-            ::new(&data.value) Value<T>(move(other.data.value));
+        Ret operator()(Args &&... args) const {
+            return m_func(static_cast<Args &&>(args)...);
         }
-    }
 
-    constexpr Option(Value<T> &&val) : has_value(true) {
-        ::new(&data.value) Value<T>(static_cast<Value<T> &&>(val));
-    }
-
-    static constexpr Option none() noexcept {
-        return Option();
-    }
-};
-
-template<typename Signature>
-class Func;
-
-// Реалізація нормального синтаксису для вказівників на функції
-template<typename Ret, typename... Args>
-class Func<Ret(Args...)> {
-public:
-    using ptr_type = Ret(*)(Args...);
-
-private:
-    ptr_type m_func = nullptr;
-
-public:
-    Func() = default;
-
-    Func(const ptr_type func) : m_func(func) {
-    }
-
-    Ret operator()(Args&&... args) const {
-        return m_func(static_cast<Args &&>(args)...);
-    }
-
-    explicit operator bool() const { return m_func != nullptr; }
-};
-
-template<typename OkType, typename ErrType>
-class Result;
-
-template<typename T>
-struct Ok {
-    T value;
-};
-
-template<typename T>
-struct Err {
-    T value;
-};
-
-template<typename OkType, typename ErrType>
-class Result {
-    bool is_ok;
-
-    union {
-        Err<ErrType> err_val;
-        Ok<OkType> ok_val;
+        explicit operator bool() const { return m_func != nullptr; }
     };
-
-public:
-    Result(Ok<OkType> &&ok) : is_ok(true) {
-        ::new(&ok_val) Ok<OkType>(move(ok));
-    }
-
-    Result(Err<ErrType> &&err) : is_ok(false) {
-        ::new(&err_val) Err<ErrType>(move(err));
-    }
-
-    ~Result() {
-        if (is_ok) {
-            ok_val.~Ok();
-        } else {
-            err_val.~Err();
-        }
-    }
-
-    Result *if_ok(Func<void(const Ok<OkType> &)> ok_fn) {
-        if (is_ok) ok_fn(ok_val);
-        return this;
-    }
-
-    Result *if_err(Func<void(const Err<ErrType> &)> err_fn) {
-        if (!is_ok) err_fn(err_val);
-        return this;
-    }
-
-    void unwrap(Func<void(const Ok<OkType> &)> ok_fn, Func<void(const Err<ErrType> &)> err_fn) {
-        is_ok ? ok_fn(ok_val) : err_fn(err_val);
-    }
-
-    bool has_value() const { return is_ok; }
-    Ok<OkType> value() { return move(ok_val); }
-    Err<ErrType> error() { return move(err_val); }
-};
+}

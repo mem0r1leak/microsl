@@ -1,4 +1,6 @@
 #pragma once
+
+#include "assert.hpp"
 #include "types.hpp"
 
 namespace msl {
