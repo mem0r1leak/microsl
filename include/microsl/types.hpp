@@ -152,7 +152,9 @@ namespace msl::types {
     template<typename Signature>
     class Func;
 
-    // Реалізація нормального синтаксису для вказівників на функції
+    /**
+     * @brief Something like a trivial implementation of std::function. Maden to simplify function pointer syntax.
+     */
     template<typename Ret, typename... Args>
     class Func<Ret(Args...)> {
     public:

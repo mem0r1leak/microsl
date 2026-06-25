@@ -1,5 +1,18 @@
 #pragma once
 
+#if defined(__clang__) || defined(__GNUC__)
+    #define MSL_BUILTIN_MEMCPY(dest, src, count) __builtin_memcpy(dest, src, count)
+#elif defined(_MSC_VER)
+    #define MSL_BUILTIN_MEMCPY(dest, src, count) __builtin_memcpy(dest, src, count)
+#else
+    #define MSL_BUILTIN_MEMCPY(dest, src, count) \
+    do { \
+    auto* d = static_cast<unsigned char*>(dest); \
+    const auto* s = static_cast<const unsigned char*>(src); \
+    for (msl::types::usize i = 0; i < (count); ++i) d[i] = s[i]; \
+    } while(0)
+#endif
+
 namespace msl::builtin {
 #if defined(_MSC_VER)
     extern "C" unsigned char _BitScanForward(unsigned long *_Index, unsigned long _Mask);
