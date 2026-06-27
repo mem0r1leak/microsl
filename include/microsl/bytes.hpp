@@ -40,5 +40,11 @@ namespace msl::bytes {
         } else {
             static_assert(false);
         }
+        return value;
+    }
+
+    template<typename T, Endian endian>
+    constexpr bool need_swap() noexcept {
+        return endian != NativeEndian and sizeof(T) > 1;
     }
 }

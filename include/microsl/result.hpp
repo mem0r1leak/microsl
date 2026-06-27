@@ -69,7 +69,7 @@ namespace msl {
          * @brief Implicit conversion to bool for quick validity checks.
          * @code if (result) { // handles ok } else { // handles err }
          */
-        operator bool() const { return is_ok_; }
+        [[nodiscard]] operator bool() const { return is_ok_; }
 
         /**
          * @brief Executes a callback if the operation was successful.
@@ -117,11 +117,11 @@ namespace msl {
         /**
          * @brief Unwraps and returns the successful value using move semantics.
          */
-        OkType value() const { return mem::move(ok_val.value); }
+        [[nodiscard]] OkType value() const { return mem::move(ok_val.value); }
 
         /**
          * @brief Unwraps and returns the error value using move semantics.
          */
-        ErrType error() const { return mem::move(err_val.value); }
+        [[nodiscard]] ErrType error() const { return mem::move(err_val.value); }
     };
 }

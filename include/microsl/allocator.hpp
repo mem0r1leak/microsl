@@ -27,7 +27,7 @@ namespace msl {
         template<typename T>
         [[nodiscard]] Result<Span<T>, AllocationError> alloc(usize size) {
             const auto memory = allocate(size * sizeof(T), alignof(T));
-            if (!memory.ok()) {
+            if (!memory.is_ok()) {
                 return memory.error();
             }
 
@@ -41,7 +41,7 @@ namespace msl {
         template<typename T, typename... Args>
         [[nodiscard]] Result<T*, AllocationError> create(Args &&... args) {
             const auto memory = allocate(sizeof(T), alignof(T));
-            if (!memory.ok()) return memory.error();
+            if (!memory.is_ok()) return memory.error();
             auto object = ::new(memory.value()) T(static_cast<Args &&>(args)...);
             return Ok{object};
         }

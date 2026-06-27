@@ -1,11 +1,12 @@
 #pragma once
+#include "types.hpp"
 
 #if defined(__clang__) || defined(__GNUC__)
-    #define MSL_BUILTIN_MEMCPY(dest, src, count) __builtin_memcpy(dest, src, count)
+#define MSL_BUILTIN_MEMCPY(dest, src, count) __builtin_memcpy(dest, src, count)
 #elif defined(_MSC_VER)
-    #define MSL_BUILTIN_MEMCPY(dest, src, count) __builtin_memcpy(dest, src, count)
+#define MSL_BUILTIN_MEMCPY(dest, src, count) __builtin_memcpy(dest, src, count)
 #else
-    #define MSL_BUILTIN_MEMCPY(dest, src, count) \
+#define MSL_BUILTIN_MEMCPY(dest, src, count) \
     do { \
     auto* d = static_cast<unsigned char*>(dest); \
     const auto* s = static_cast<const unsigned char*>(src); \
@@ -26,6 +27,18 @@ namespace msl::builtin {
 #endif
     }
 
+    template<typename To, typename From>
+        requires (sizeof(To) == sizeof(From)) &&
+                 types::concepts::trivially_copyable<To> &&
+                 types::concepts::trivially_copyable<From>
+    [[nodiscard]] constexpr To bit_cast(const From &src) noexcept {
+        static_assert(sizeof(To) == sizeof(From), "bit_cast source and destination sizes must be equal");
+
+        To dst;
+        __builtin_memcpy(&dst, &src, sizeof(To));
+        return dst;
+    }
+
     inline unsigned int ctz(const unsigned int value) noexcept {
         if (value == 0) return 32;
 
@@ -33,7 +46,6 @@ namespace msl::builtin {
         return static_cast<unsigned int>(__builtin_ctz(value));
 #elif defined(_MSC_VER)
         unsigned long index = 0;
-        // _BitScanForward повертає 0, якщо маска порожня (ми це вже перевірили вище)
         _BitScanForward(&index, value);
         return static_cast<unsigned int>(index);
 #else

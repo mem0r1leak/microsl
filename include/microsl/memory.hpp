@@ -63,7 +63,7 @@ namespace msl::mem {
      * @tparam N Exact number of bytes to copy known at compile time.
      * @param dst Pointer to the destination memory buffer.
      * @param src Pointer to the source data buffer.
-     * @note Maximizes performance via compiler intrinsics, enabling loop unrolling and SIMD vectorization.
+     * @note Maximizes performance via compiler intrinsics, enabling loop unrolling and SIMD vectorization. Strictly for trivially copyable types (pods, primitives, raw blocks).
      */
     template<types::usize N>
     void copy(void* dst, const void* src) noexcept {
@@ -140,6 +140,6 @@ namespace msl::mem {
  * @details Required by the language syntax to make `::new(ptr) T(...)` work.
  * Per the C++ standard, it simply returns the provided pointer without allocating anything.
  */
-inline void *operator new(msl::types::usize, void *__p) noexcept {
-    return __p;
-}
+// inline void *operator new(msl::types::usize, void *__p) noexcept {
+//     return __p;
+// }
