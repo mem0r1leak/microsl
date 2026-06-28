@@ -18,6 +18,16 @@ namespace msl::io {
             SmallBuffer,
         };
 
+        /**
+         * @brief Reads a fixed-size span of integral elements from the buffer.
+         * Performs a fast linear block copy followed by an in-place byte swap
+         * if the target endianness differs from the system native byte order.
+         * @tparam T Integral type of the elements.
+         * @tparam size Compile-time static capacity of the span.
+         * @tparam endianness Target byte order to interpret from the packet.
+         * @param values Static Span pointing to the destination memory block.
+         * @return Result<usize, ReadErr> Number of BYTES read on success, or ReadErr if out of bounds.
+         */
         template<concepts::integral T, usize size, bytes::Endian endianness = bytes::NativeEndian>
         Result<usize, ReadErr> read(Span<T, size> values) {
             if (buf.size_bytes() - read_bytes < values.size_bytes()) {
@@ -34,6 +44,15 @@ namespace msl::io {
             return Ok(bytes_to_read);
         }
 
+        /**
+         * @brief Reads a dynamic runtime span of integral elements from the buffer.
+         * Copies a continuous block of bytes into the destination span and applies
+         * conditional vectorizable byte-swapping based on compile-time endianness checks.
+         * @tparam T Integral type of the elements.
+         * @tparam endianness Target byte order to interpret from the packet.
+         * @param values Dynamic Span pointing to the destination memory block.
+         * @return Result<usize, ReadErr> Number of BYTES read on success, or ReadErr if out of bounds.
+         */
         template<concepts::integral T, bytes::Endian endianness = bytes::NativeEndian>
         Result<usize, ReadErr> read(Span<T> values) {
             if (buf.size_bytes() - read_bytes < values.size_bytes()) {
@@ -50,6 +69,13 @@ namespace msl::io {
             return Ok(bytes_to_read);
         }
 
+        /**
+         * @brief Reads a single scalar integer from the buffer, returning it via Result wrapper.
+         * Monadic-style API for sequential parsing. Safe against out-of-bounds reads.
+         * @tparam T Integral type to read.
+         * @tparam endianness Target byte order of the integer in the buffer.
+         * @return Result<T, ReadErr> The parsed scalar value, or ReadErr if the buffer is exhausted.
+         */
         template<concepts::integral T, bytes::Endian endianness = bytes::NativeEndian>
         Result<T, ReadErr> readInt() {
             if (buf.size_bytes() - read_bytes < sizeof(T)) {
@@ -65,6 +91,14 @@ namespace msl::io {
             return Ok(value);
         }
 
+        /**
+         * @brief Reads a single scalar integer directly into the provided destination pointer.
+         * @tparam T Integral type to read.
+         * @tparam endianness Target byte order of the integer in the buffer.
+         * @param out Valid non-null pointer to memory where the result will be written.
+         * @return Option<ReadErr> Error code if read failed, or `none` if operation succeeded.
+         * Nullptr passed to out is defined as undefined behaviour. (nullptr dereference)
+         */
         template<concepts::integral T, bytes::Endian endianness = bytes::NativeEndian>
         Option<ReadErr> readInt(T *out) {
             if (buf.size_bytes() - read_bytes < sizeof(T)) {
@@ -78,7 +112,6 @@ namespace msl::io {
             read_bytes += sizeof(T);
             return none;
         }
-
     private:
         usize read_bytes = 0;
         Span<u8, buf_size> buf;
