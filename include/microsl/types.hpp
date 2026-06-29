@@ -90,11 +90,33 @@ namespace msl::types::concepts {
     };
 
     template<typename T>
+    struct remove_reference {
+        using type = T;
+    };
+
+    template<typename T>
+    struct remove_reference<T &> {
+        using type = T;
+    };
+
+    template<typename T>
+    struct remove_reference<T &&> {
+        using type = T;
+    };
+
+    template<typename T>
+    using remove_reference_t = remove_reference<T>::type;
+
+    template<typename T>
     concept pointer = is_pointer<T>::value;
 
     // Чи можна тип копіювати просто через memcpy (Trivially Copyable)?
     template<typename T>
     concept trivially_copyable = __is_trivially_copyable(T);
+
+    // Чи має конструктор
+    template<typename T>
+    concept trivially_constructible = __is_trivially_constructible(T);
 
     // Чи має тип тривіальний деструктор (тобто його не треба викликати, як у int)?
     template<typename T>
@@ -102,8 +124,9 @@ namespace msl::types::concepts {
 
     // Чи можна тип викликати як функцію тобто чи є тип функтором
     template<typename F, typename... Args>
-    concept invocable = requires(F&& f, Args&&... args) {
-        f(static_cast<Args&&>(args)...);
+    concept invocable = requires(F &&f, Args &&... args)
+    {
+        f(static_cast<Args &&>(args)...);
     };
 }
 
@@ -151,6 +174,30 @@ namespace msl::types {
 
     template<typename Signature>
     class Func;
+
+    /**
+     * @brief Casts an lvalue reference to an rvalue reference to enable move semantics.
+     * @note This is a pure compile-time type cast. It carries zero runtime overhead
+     * and generates no CPU instructions.
+     */
+    template<typename T>
+    [[nodiscard]] constexpr concepts::remove_reference_t<T>&& move(T&& val) noexcept {
+        return static_cast<concepts::remove_reference_t<T>&&>(val);
+    }
+
+    /**
+     * @brief Implements perfect forwarding for a function argument.
+     * Preserves the original value category (lvalue or rvalue) of the passed object.
+     * The use of `remove_reference_t` creates a non-deduced context, forcing the
+     * compiler to use the explicitly provided template parameter `T`.
+     * @tparam T The original type of the argument captured via universal reference.
+     * @param param The reference to the object whose value category needs to be restored.
+     * @return T&& The original reference (collapses to either lvalue or rvalue reference).
+     */
+    template<typename T>
+    [[nodiscard]] constexpr T&& forward(concepts::remove_reference_t<T>& param) noexcept {
+        return static_cast<T&&>(param);
+    }
 
     /**
      * @brief Something like a trivial implementation of std::function. Maden to simplify function pointer syntax.

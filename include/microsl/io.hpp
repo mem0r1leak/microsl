@@ -185,10 +185,8 @@ namespace msl::io {
             const usize bytes_to_write = elems_to_write * sizeof(T);
             u8* const dest_bytes = buf.ptr + occupancy;
 
-            // Direct byte copy for both cases (fully vectorizable by compiler)
             mem::copy(dest_bytes, reinterpret_cast<const u8*>(values.ptr), bytes_to_write);
 
-            // If byte swapping is required, we do it in-place inside the target buffer
             if constexpr (bytes::need_swap<T, endianness>()) {
                 T* const dest_elements = reinterpret_cast<T*>(dest_bytes);
                 for (usize i = 0; i < elems_to_write; ++i) {

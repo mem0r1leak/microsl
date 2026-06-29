@@ -15,16 +15,6 @@ namespace msl::mem {
     }
 
     /**
-     * @brief Casts an lvalue reference to an rvalue reference to enable move semantics.
-     * @note This is a pure compile-time type cast. It carries zero runtime overhead
-     * and generates no CPU instructions.
-     */
-    template<typename T>
-    constexpr T &&move(T &val) noexcept {
-        return static_cast<T &&>(val);
-    }
-
-    /**
      * @brief Explicitly invokes the destructor for a single object.
      * @note Used for manual cleanup of objects initialized via mem::construct.
      */
@@ -40,9 +30,9 @@ namespace msl::mem {
      * @note Destruction is performed sequentially in forward index order.
      */
     template<typename T>
-    constexpr void destruct(T *ptr, const types::usize count) noexcept {
+    constexpr void destruct(T *ptr, const usize count) noexcept {
         if (!ptr) return;
-        for (types::usize i = 0; i < count; ++i) {
+        for (usize i = 0; i < count; ++i) {
             ptr[i].~T();
         }
     }
@@ -54,7 +44,7 @@ namespace msl::mem {
      * @param count Total number of bytes to copy.
      * @note Strictly for trivially copyable types (pods, primitives, raw blocks).
      */
-    inline void copy(void* dst, const void* src, const types::usize count) noexcept {
+    inline void copy(void* dst, const void* src, const usize count) noexcept {
         MSL_BUILTIN_MEMCPY(dst, src, count);
     }
 
@@ -65,7 +55,7 @@ namespace msl::mem {
      * @param src Pointer to the source data buffer.
      * @note Maximizes performance via compiler intrinsics, enabling loop unrolling and SIMD vectorization. Strictly for trivially copyable types (pods, primitives, raw blocks).
      */
-    template<types::usize N>
+    template<usize N>
     void copy(void* dst, const void* src) noexcept {
         MSL_BUILTIN_MEMCPY(dst, src, N);
     }
@@ -79,11 +69,11 @@ namespace msl::mem {
      * @note Invokes copy constructor via placement new at destination layout.
      * Triggers a compilation error if used on trivial types to enforce optimization. @see copy
      */
-    template<typename T, types::usize N>
+    template<typename T, usize N>
     constexpr void obj_copy(T* dst, const T* src) noexcept {
         static_assert(!msl::types::concepts::trivially_copyable<T> &&
                       "It's better to use copy function for copying trivial types");
-        for (types::usize i = 0; i < N; ++i) {
+        for (usize i = 0; i < N; ++i) {
             mem::construct(dst + i, src[i]);
         }
     }
@@ -98,10 +88,10 @@ namespace msl::mem {
      * Triggers a compilation error if used on trivial types to enforce optimization. @see copy
      */
     template<typename T>
-    void obj_copy(T* dst, const T* src, const types::usize count) noexcept {
+    void obj_copy(T* dst, const T* src, const usize count) noexcept {
         static_assert(!msl::types::concepts::trivially_copyable<T> &&
                       "It's better to use copy function for copying trivial types");
-        for (types::usize i = 0; i < count; ++i) {
+        for (usize i = 0; i < count; ++i) {
             mem::construct(dst + i, src[i]);
         }
     }
@@ -112,7 +102,7 @@ namespace msl::mem {
      * Otherwise, it safely constructs complex objects sequentially using copy constructors.
     */
     template<typename T>
-    constexpr void generic_copy(T *dst, const T *src, const types::usize count) noexcept {
+    constexpr void generic_copy(T *dst, const T *src, const usize count) noexcept {
         if constexpr (msl::types::concepts::trivially_copyable<T>) {
             mem::copy(dst, src, count * sizeof(T));
         } else {
@@ -125,7 +115,7 @@ namespace msl::mem {
      * @details If the type is trivially copyable, it executes a lightning-fast bulk block copy.
      * Otherwise, it safely constructs complex objects sequentially using copy constructors.
     */
-    template<typename T, types::usize N>
+    template<typename T, usize N>
     constexpr void generic_copy(T *dst, const T *src) noexcept {
         if constexpr (msl::types::concepts::trivially_copyable<T>) {
             mem::copy<N * sizeof(T)>(dst, src);
